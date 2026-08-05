@@ -175,4 +175,4 @@ genuine, learnable fraud signals rather than random noise.
 
 ## Author
 
-**Honey Flores** — [LinkedIn](#) · [Email](mailto:floreshoneyt@gmail.com)
+**Honey Flores** — [LinkedIn](https://www.linkedin.com/in/honey-flores-ai4037/) · [Email](mailto:floreshoneyt@gmail.com)
