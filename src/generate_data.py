@@ -115,7 +115,8 @@ def generate():
 
 if __name__ == "__main__":
     df = generate()
-    out_path = "/home/claude/fraud-dispute-detection/data/transactions.csv"
+    import os
+    out_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "transactions.csv")
     df.to_csv(out_path, index=False)
     print(f"Generated {len(df):,} transactions -> {out_path}")
     print(f"Fraud rate: {df['is_fraud'].mean()*100:.2f}%")
