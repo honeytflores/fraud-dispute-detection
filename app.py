@@ -53,6 +53,8 @@ def get_connection():
     conn.executescript(SCHEMA_PATH.read_text())
     pd.read_csv(CSV_PATH).to_sql("disputed_transactions", conn, if_exists="append", index=False)
     conn.commit()
+    # Visitors share this connection via the custom-query box, so block any writes
+    conn.execute("PRAGMA query_only = ON")
     return conn
 
 
