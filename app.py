@@ -13,6 +13,7 @@ import re
 import sqlite3
 from pathlib import Path
 
+import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -31,6 +32,7 @@ QUERIES_PATH = ROOT / "sql" / "analysis_queries.sql"
 FEATURES_NUM = ["amount", "account_age_days", "prior_disputes_count", "hour"]
 FEATURES_CAT = ["merchant_category", "channel", "country"]
 HIGH_RISK, MEDIUM_RISK = 0.6, 0.4
+RED, BLUE = "#C44E52", "#4C72B0"
 
 st.set_page_config(page_title="Fraud & Dispute Detection", page_icon="🛡️", layout="wide")
 
@@ -113,6 +115,27 @@ def fraud_rate_by(df, column):
     return (df.groupby(column)["is_fraud"].mean() * 100).round(2).sort_values(ascending=False)
 
 
+def rate_chart(df, column, baseline):
+    # Horizontal bars sorted riskiest first, labeled with their rate; red = above the
+    # overall fraud rate (dashed line), blue = below it
+    data = fraud_rate_by(df, column).rename("rate").reset_index()
+    data["label"] = data["rate"].map("{:.1f}%".format)
+    data["above"] = data["rate"] > baseline
+    base = alt.Chart(data).encode(
+        y=alt.Y(f"{column}:N", sort="-x", title=None, axis=alt.Axis(labelLimit=200)),
+        x=alt.X("rate:Q", title="Fraud rate (%)", scale=alt.Scale(domain=[0, data["rate"].max() * 1.25])),
+        tooltip=[alt.Tooltip(f"{column}:N", title="Group"), alt.Tooltip("label:N", title="Fraud rate")],
+    )
+    bars = base.mark_bar().encode(
+        color=alt.condition("datum.above", alt.value(RED), alt.value(BLUE))
+    )
+    labels = base.mark_text(align="left", dx=4).encode(text="label:N")
+    average = alt.Chart(pd.DataFrame({"rate": [baseline]})).mark_rule(
+        strokeDash=[4, 4], color="gray"
+    ).encode(x="rate:Q")
+    return (bars + labels + average).properties(height=32 * len(data) + 50)
+
+
 df = load_data()
 model, metrics, queue = train_model()
 
@@ -140,29 +163,45 @@ with tab_overview:
     c3.metric("New accounts (<60 days)", f"{new_acct:.1f}%")
     c4.metric("Foreign transactions", f"{foreign:.1f}%")
 
+    overall = df["is_fraud"].mean() * 100
+    st.caption(
+        f"In the charts below, the dashed line is the overall fraud rate ({overall:.1f}%). "
+        "Red bars are riskier than average, blue bars are safer."
+    )
+
     left, right = st.columns(2)
     with left:
-        st.subheader("Fraud rate by merchant category (%)")
-        st.bar_chart(fraud_rate_by(df, "merchant_category"), horizontal=True, color="#C44E52")
+        st.subheader("Fraud rate by merchant category")
+        st.altair_chart(rate_chart(df, "merchant_category", overall), width="stretch")
     with right:
-        st.subheader("Monthly fraud rate (%)")
-        monthly = (df.groupby("month")["is_fraud"].mean() * 100).round(2)
-        st.line_chart(monthly, color="#C44E52")
+        st.subheader("Monthly fraud rate")
+        monthly = (df.groupby("month")["is_fraud"].mean() * 100).round(2).rename("rate").reset_index()
+        monthly["month"] = pd.to_datetime(monthly["month"])
+        line = alt.Chart(monthly).mark_line(point=True, color=RED).encode(
+            x=alt.X("month:T", title=None, axis=alt.Axis(format="%b", labelAngle=0, tickCount="month")),
+            y=alt.Y("rate:Q", title="Fraud rate (%)", scale=alt.Scale(domain=[0, 30])),
+            tooltip=[alt.Tooltip("month:T", format="%B %Y"), alt.Tooltip("rate:Q", title="Fraud rate (%)")],
+        )
+        average = alt.Chart(pd.DataFrame({"rate": [overall]})).mark_rule(
+            strokeDash=[4, 4], color="gray"
+        ).encode(y="rate:Q")
+        st.altair_chart((line + average).properties(height=370), width="stretch")
 
     segments = df.assign(
         account=lambda d: d["account_age_days"].lt(60).map({True: "New (<60d)", False: "Established"}),
         geography=lambda d: d["country"].eq("PH").map({True: "Domestic", False: "Foreign"}),
         time_of_day=lambda d: d["hour"].between(0, 4).map({True: "Late night (12-4AM)", False: "Rest of day"}),
     )
-    st.subheader("Risk factors (fraud rate %)")
-    cols = st.columns(4)
-    for col, (label, field) in zip(cols, [
+    st.subheader("Risk factors")
+    factors = [
         ("Account age", "account"), ("Channel", "channel"),
         ("Geography", "geography"), ("Time of day", "time_of_day"),
-    ]):
-        with col:
-            st.markdown(f"**{label}**")
-            st.bar_chart(fraud_rate_by(segments, field), color="#4C72B0", height=250)
+    ]
+    for row in (factors[:2], factors[2:]):
+        for col, (label, field) in zip(st.columns(2), row):
+            with col:
+                st.markdown(f"**{label}**")
+                st.altair_chart(rate_chart(segments, field, overall), width="stretch")
 
 # ---------- Review Queue ----------
 
