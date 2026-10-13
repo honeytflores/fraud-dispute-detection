@@ -1,8 +1,8 @@
 # Fraud & Dispute Detection Analysis
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://fraud-dispute-detection.streamlit.app)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://fraud-dispute-detection-pdfp2nuhle6pmqo57rsvrc.streamlit.app/)
 
-**▶ [Try the live dashboard](https://fraud-dispute-detection.streamlit.app)**: no install needed, it runs in your browser.
+**▶ [Try the live dashboard](https://fraud-dispute-detection-pdfp2nuhle6pmqo57rsvrc.streamlit.app/)**: no install needed, it runs in your browser.
 
 A SQL + Python project that analyzes disputed financial transactions — each
 reviewed and categorized as **Fraudulent** or **Legitimate** — to uncover the
@@ -22,7 +22,7 @@ portfolio piece.
 
 ## Live dashboard
 
-The [live dashboard](https://fraud-dispute-detection.streamlit.app) has three
+The [live dashboard](https://fraud-dispute-detection-pdfp2nuhle6pmqo57rsvrc.streamlit.app/) has three
 tabs:
 
 - **📊 Overview**: key fraud metrics and risk-factor charts
@@ -124,7 +124,7 @@ fraud-dispute-detection/
 ## Running it locally (optional)
 
 You don't need to run anything to see the project: use the
-[live dashboard](https://fraud-dispute-detection.streamlit.app) or the
+[live dashboard](https://fraud-dispute-detection-pdfp2nuhle6pmqo57rsvrc.streamlit.app/) or the
 [notebook](notebooks/fraud_analysis.ipynb). To reproduce it on your own
 machine:
 
