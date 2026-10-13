@@ -16,6 +16,14 @@ portfolio piece.
 > patterns. No real customer, company, or financial data is used anywhere
 > in this project.
 
+## Interactive dashboard
+
+`app.py` is a Streamlit dashboard with three tabs:
+
+- **Overview**: key fraud metrics and risk-factor charts
+- **SQL Explorer**: run the queries in `sql/analysis_queries.sql`, or write your own
+- **Risk Scorer**: enter a new dispute and get a fraud-risk score from the model
+
 ---
 
 ## Why this project
@@ -94,6 +102,7 @@ fraud-dispute-detection/
 │   ├── generate_data.py          # generates the synthetic dataset
 │   └── build_database.py         # loads CSV into SQLite & runs all SQL queries
 ├── images/                       # chart exports used in this README
+├── app.py                        # Streamlit dashboard (overview, SQL explorer, risk scorer)
 ├── requirements.txt
 └── README.md
 ```
@@ -118,6 +127,9 @@ python src/build_database.py
 
 # 5. Open the notebook to see the full analysis and model
 jupyter notebook notebooks/fraud_analysis.ipynb
+
+# 6. Launch the interactive dashboard
+streamlit run app.py
 ```
 
 You can also explore `sql/analysis_queries.sql` directly against
@@ -168,8 +180,6 @@ genuine, learnable fraud signals rather than random noise.
   review).
 - Compare Random Forest against a simpler baseline (logistic regression)
   and a gradient-boosted model (XGBoost/LightGBM).
-- Build a lightweight Streamlit dashboard for interactively exploring the
-  SQL query results.
 
 ---
 

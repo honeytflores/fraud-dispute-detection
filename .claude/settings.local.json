@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add src/generate_data.py)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix: Use cross-platform path for data generation\n\nReplace hardcoded Unix path with os.path.join to work on Windows, macOS, and Linux.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
