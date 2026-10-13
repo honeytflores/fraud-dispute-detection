@@ -13,6 +13,7 @@ import re
 import sqlite3
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 from sklearn.compose import ColumnTransformer
@@ -29,6 +30,7 @@ QUERIES_PATH = ROOT / "sql" / "analysis_queries.sql"
 
 FEATURES_NUM = ["amount", "account_age_days", "prior_disputes_count", "hour"]
 FEATURES_CAT = ["merchant_category", "channel", "country"]
+HIGH_RISK, MEDIUM_RISK = 0.6, 0.4
 
 st.set_page_config(page_title="Fraud & Dispute Detection", page_icon="🛡️", layout="wide")
 
@@ -82,11 +84,25 @@ def train_model():
         )),
     ])
     model.fit(X_train, y_train)
+    proba = model.predict_proba(X_test)[:, 1]
     metrics = {
-        "auc": roc_auc_score(y_test, model.predict_proba(X_test)[:, 1]),
+        "auc": roc_auc_score(y_test, proba),
         "recall": recall_score(y_test, model.predict(X_test)),
     }
-    return model, metrics
+
+    # Held-out disputes ranked by risk: the order a review team would work them
+    queue = df.loc[X_test.index].assign(risk_score=proba)
+    queue = queue.sort_values("risk_score", ascending=False).reset_index(drop=True)
+    queue["risk_level"] = queue["risk_score"].map(risk_level)
+    return model, metrics, queue
+
+
+def risk_level(score):
+    if score >= HIGH_RISK:
+        return "High"
+    if score >= MEDIUM_RISK:
+        return "Medium"
+    return "Low"
 
 
 def run_sql(sql):
@@ -98,6 +114,7 @@ def fraud_rate_by(df, column):
 
 
 df = load_data()
+model, metrics, queue = train_model()
 
 # ---------- Header ----------
 
@@ -107,7 +124,9 @@ st.caption(
     "The dataset is synthetic; no real customer data is used."
 )
 
-tab_overview, tab_sql, tab_score = st.tabs(["📊 Overview", "🗄️ SQL Explorer", "🔍 Risk Scorer"])
+tab_overview, tab_queue, tab_score, tab_sql = st.tabs(
+    ["📊 Overview", "📋 Review Queue", "🔍 Risk Scorer", "🗄️ SQL Explorer"]
+)
 
 # ---------- Overview ----------
 
@@ -145,6 +164,100 @@ with tab_overview:
             st.markdown(f"**{label}**")
             st.bar_chart(fraud_rate_by(segments, field), color="#4C72B0", height=250)
 
+# ---------- Review Queue ----------
+
+with tab_queue:
+    st.markdown(
+        f"The model scored **{len(queue):,} disputes it never saw during training** and sorted them "
+        "riskiest first. This is the order a review team would work them in, instead of first-come, "
+        "first-served."
+    )
+    capacity = st.slider("Review capacity: % of the queue your team can get through", 5, 100, 20, step=5)
+
+    total_fraud = queue["is_fraud"].sum()
+    n_review = round(len(queue) * capacity / 100)
+    caught = queue["is_fraud"].iloc[:n_review].sum()
+    caught_pct = caught / total_fraud * 100
+    base_rate = total_fraud / len(queue) * 100
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Disputes reviewed", f"{n_review:,} of {len(queue):,}")
+    c2.metric(
+        "Share of all fraud caught", f"{caught_pct:.0f}%",
+        delta=f"{caught_pct - capacity:+.0f} pts vs. arrival order",
+    )
+    c3.metric(
+        "Fraud rate in reviewed cases", f"{caught / n_review * 100:.0f}%",
+        delta=f"{caught / n_review * 100 - base_rate:+.0f} pts vs. {base_rate:.0f}% overall",
+    )
+
+    left, right = st.columns([3, 2])
+    with left:
+        st.subheader("Fraud caught vs. disputes reviewed")
+        reviewed = np.arange(1, len(queue) + 1) / len(queue) * 100
+        gains = pd.DataFrame({
+            "% of queue reviewed": reviewed,
+            "Ranked by model": queue["is_fraud"].cumsum() / total_fraud * 100,
+            "Arrival order (no model)": reviewed,
+        }).iloc[::20]
+        st.line_chart(
+            gains, x="% of queue reviewed", y=["Ranked by model", "Arrival order (no model)"],
+            y_label="% of all fraud caught", color=["#C44E52", "#999999"], height=320,
+        )
+    with right:
+        st.subheader("Risk levels")
+        levels = (
+            queue.groupby("risk_level")
+            .agg(disputes=("is_fraud", "size"), actual_fraud_rate=("is_fraud", "mean"))
+            .reindex(["High", "Medium", "Low"])
+            .reset_index()
+        )
+        levels["actual_fraud_rate"] *= 100
+        st.dataframe(
+            levels, hide_index=True, width="stretch",
+            column_config={
+                "risk_level": "Risk level",
+                "disputes": "Disputes",
+                "actual_fraud_rate": st.column_config.NumberColumn("Actual fraud rate", format="%.0f%%"),
+            },
+        )
+        st.caption(
+            f"High = score ≥ {HIGH_RISK:.0%}, Medium = {MEDIUM_RISK:.0%}–{HIGH_RISK:.0%}, "
+            f"Low = below {MEDIUM_RISK:.0%}."
+        )
+
+    st.subheader(f"Your team's queue: top {n_review:,} disputes")
+    show = queue.head(n_review).assign(
+        rank=lambda d: d.index + 1, risk_score=lambda d: d["risk_score"] * 100
+    )
+    st.dataframe(
+        show[[
+            "rank", "transaction_id", "risk_score", "risk_level", "amount", "merchant_category",
+            "channel", "country", "account_age_days", "prior_disputes_count", "hour", "dispute_status",
+        ]],
+        hide_index=True, width="stretch", height=400,
+        column_config={
+            "rank": "Rank",
+            "transaction_id": "Transaction",
+            "risk_score": st.column_config.ProgressColumn(
+                "Risk score", format="%.0f%%", min_value=0, max_value=100
+            ),
+            "risk_level": "Risk level",
+            "amount": st.column_config.NumberColumn("Amount", format="%.2f"),
+            "merchant_category": "Merchant category",
+            "channel": "Channel",
+            "country": "Country",
+            "account_age_days": "Account age (days)",
+            "prior_disputes_count": "Prior disputes",
+            "hour": "Hour",
+            "dispute_status": "Actual outcome",
+        },
+    )
+    st.caption(
+        "\"Actual outcome\" is the real review decision, shown only to check the ranking. "
+        "In live use it wouldn't be known until the dispute is reviewed."
+    )
+
 # ---------- SQL Explorer ----------
 
 with tab_sql:
@@ -177,7 +290,6 @@ with tab_sql:
 # ---------- Risk Scorer ----------
 
 with tab_score:
-    model, metrics = train_model()
     st.markdown(
         "Score a new dispute with the Random Forest model from the notebook "
         f"(test ROC-AUC **{metrics['auc']:.2f}**, fraud recall **{metrics['recall']:.0%}**)."
@@ -204,12 +316,13 @@ with tab_score:
             "merchant_category": category, "channel": channel, "country": country,
         }])
         proba = model.predict_proba(row[FEATURES_NUM + FEATURES_CAT])[0, 1]
-        if proba >= 0.6:
-            st.error(f"**High risk:** {proba:.0%} probability of fraud. Prioritize for review.")
-        elif proba >= 0.4:
-            st.warning(f"**Medium risk:** {proba:.0%} probability of fraud.")
-        else:
-            st.success(f"**Low risk:** {proba:.0%} probability of fraud.")
+        level = risk_level(proba)
+        rank = (queue["risk_score"] > proba).sum() + 1
+        message = (
+            f"**{level} risk:** {proba:.0%} risk score. It would rank #{rank:,} of "
+            f"{len(queue):,} in the review queue."
+        )
+        {"High": st.error, "Medium": st.warning, "Low": st.success}[level](message)
         st.progress(float(proba))
         st.caption(
             "The model uses class_weight='balanced', so scores are relative risk "

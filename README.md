@@ -22,15 +22,20 @@ portfolio piece.
 
 ## Live dashboard
 
-The [live dashboard](https://fraud-dispute-detection-pdfp2nuhle6pmqo57rsvrc.streamlit.app/) has three
+The [live dashboard](https://fraud-dispute-detection-pdfp2nuhle6pmqo57rsvrc.streamlit.app/) has four
 tabs:
 
 - **📊 Overview**: key fraud metrics and risk-factor charts
+- **📋 Review Queue**: 2,000 disputes the model never saw during training,
+  sorted riskiest first, the way a review team would work them. Set your
+  team's review capacity and see how much fraud it catches: reviewing just the
+  **top 20%** of the queue catches **44% of all fraud**, versus 20% when
+  working in arrival order.
+- **🔍 Risk Scorer**: enter the details of a new dispute (amount, merchant,
+  channel, country, account age, time of day) and get a risk score, plus where
+  it would rank in the review queue
 - **🗄️ SQL Explorer**: run any of the 10 analytical SQL queries and see the
   results, or write your own `SELECT` query against the data
-- **🔍 Risk Scorer**: enter the details of a new dispute (amount, merchant,
-  channel, country, account age, time of day) and get a fraud-risk score from
-  the trained model
 
 If you'd rather just read, the [notebook](notebooks/fraud_analysis.ipynb)
 renders directly on GitHub with all charts and outputs, and the key findings
@@ -114,7 +119,7 @@ fraud-dispute-detection/
 │   ├── generate_data.py          # generates the synthetic dataset
 │   └── build_database.py         # loads CSV into SQLite & runs all SQL queries
 ├── images/                       # chart exports used in this README
-├── app.py                        # Streamlit dashboard (overview, SQL explorer, risk scorer)
+├── app.py                        # Streamlit dashboard (overview, review queue, risk scorer, SQL)
 ├── requirements.txt
 └── README.md
 ```
