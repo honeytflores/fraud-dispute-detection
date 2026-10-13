@@ -1,5 +1,9 @@
 # Fraud & Dispute Detection Analysis
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://fraud-dispute-detection.streamlit.app)
+
+**▶ [Try the live dashboard](https://fraud-dispute-detection.streamlit.app)**: no install needed, it runs in your browser.
+
 A SQL + Python project that analyzes disputed financial transactions — each
 reviewed and categorized as **Fraudulent** or **Legitimate** — to uncover the
 patterns that make a transaction likely to be fraudulent, and to build a
@@ -16,13 +20,21 @@ portfolio piece.
 > patterns. No real customer, company, or financial data is used anywhere
 > in this project.
 
-## Interactive dashboard
+## Live dashboard
 
-`app.py` is a Streamlit dashboard with three tabs:
+The [live dashboard](https://fraud-dispute-detection.streamlit.app) has three
+tabs:
 
-- **Overview**: key fraud metrics and risk-factor charts
-- **SQL Explorer**: run the queries in `sql/analysis_queries.sql`, or write your own
-- **Risk Scorer**: enter a new dispute and get a fraud-risk score from the model
+- **📊 Overview**: key fraud metrics and risk-factor charts
+- **🗄️ SQL Explorer**: run any of the 10 analytical SQL queries and see the
+  results, or write your own `SELECT` query against the data
+- **🔍 Risk Scorer**: enter the details of a new dispute (amount, merchant,
+  channel, country, account age, time of day) and get a fraud-risk score from
+  the trained model
+
+If you'd rather just read, the [notebook](notebooks/fraud_analysis.ipynb)
+renders directly on GitHub with all charts and outputs, and the key findings
+are summarized below.
 
 ---
 
@@ -109,11 +121,16 @@ fraud-dispute-detection/
 
 ---
 
-## How to run this yourself
+## Running it locally (optional)
+
+You don't need to run anything to see the project: use the
+[live dashboard](https://fraud-dispute-detection.streamlit.app) or the
+[notebook](notebooks/fraud_analysis.ipynb). To reproduce it on your own
+machine:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/<your-username>/fraud-dispute-detection.git
+git clone https://github.com/honeytflores/fraud-dispute-detection.git
 cd fraud-dispute-detection
 
 # 2. Install dependencies
@@ -128,8 +145,8 @@ python src/build_database.py
 # 5. Open the notebook to see the full analysis and model
 jupyter notebook notebooks/fraud_analysis.ipynb
 
-# 6. Launch the interactive dashboard
-streamlit run app.py
+# 6. Launch the dashboard locally (opens http://localhost:8501)
+python -m streamlit run app.py
 ```
 
 You can also explore `sql/analysis_queries.sql` directly against
@@ -142,6 +159,7 @@ SQLite, or the `sqlite3` CLI: `sqlite3 data/fraud_disputes.db`).
 
 - **Python**: pandas, numpy, scikit-learn, matplotlib, seaborn
 - **SQL**: SQLite
+- **Dashboard**: Streamlit, deployed on Streamlit Community Cloud
 - **Modeling**: Random Forest Classifier (scikit-learn), evaluated with
   precision/recall/F1, confusion matrix, and ROC-AUC
 
