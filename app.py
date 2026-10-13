@@ -233,16 +233,38 @@ with tab_queue:
     left, right = st.columns([3, 2])
     with left:
         st.subheader("Fraud caught vs. disputes reviewed")
-        reviewed = np.arange(1, len(queue) + 1) / len(queue) * 100
+        reviewed = np.arange(0, len(queue) + 1) / len(queue) * 100
+        caught_curve = np.concatenate([[0], queue["is_fraud"].cumsum() / total_fraud * 100])
+        step = np.unique(np.r_[0:len(reviewed):20, len(reviewed) - 1])
         gains = pd.DataFrame({
-            "% of queue reviewed": reviewed,
-            "Ranked by model": queue["is_fraud"].cumsum() / total_fraud * 100,
+            "reviewed": reviewed,
+            "Ranked by model": caught_curve,
             "Arrival order (no model)": reviewed,
-        }).iloc[::20]
-        st.line_chart(
-            gains, x="% of queue reviewed", y=["Ranked by model", "Arrival order (no model)"],
-            y_label="% of all fraud caught", color=["#C44E52", "#999999"], height=320,
+        }).iloc[step].melt("reviewed", var_name="order", value_name="caught")
+
+        axis_pct = dict(scale=alt.Scale(domain=[0, 100], nice=False))
+        lines = alt.Chart(gains).mark_line().encode(
+            x=alt.X("reviewed:Q", title="% of queue reviewed", **axis_pct),
+            y=alt.Y("caught:Q", title="% of all fraud caught", **axis_pct),
+            color=alt.Color(
+                "order:N", title=None, legend=alt.Legend(orient="bottom"),
+                scale=alt.Scale(domain=["Ranked by model", "Arrival order (no model)"], range=[RED, "#999999"]),
+            ),
+            strokeDash=alt.condition(
+                alt.datum.order == "Arrival order (no model)", alt.value([5, 4]), alt.value([1, 0])
+            ),
         )
+        marker = pd.DataFrame({"reviewed": [capacity], "caught": [caught_pct]})
+        rule = alt.Chart(marker).mark_rule(color="gray", strokeDash=[2, 2]).encode(x="reviewed:Q")
+        point = alt.Chart(marker).mark_point(filled=True, size=90, color=RED).encode(
+            x="reviewed:Q", y="caught:Q",
+            tooltip=[alt.Tooltip("reviewed:Q", title="% reviewed"),
+                     alt.Tooltip("caught:Q", title="% of fraud caught", format=".0f")],
+        )
+        label = point.mark_text(align="left", dx=8, dy=-10, fontWeight="bold").encode(
+            text=alt.value(f"{caught_pct:.0f}% of fraud caught")
+        )
+        st.altair_chart((lines + rule + point + label).properties(height=340), width="stretch")
     with right:
         st.subheader("Risk levels")
         levels = (
